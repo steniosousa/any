@@ -1,12 +1,20 @@
-import { useNavigate } from "react-router-dom";
-import { Box, Container } from "./index-css";
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Container, Heading, SubText, ContainerBox, Box } from './index-css'; // Importe os componentes estilizados
 
-export default function AutoCheck(){
-    const navigate = useNavigate()
-    return(
-        <Container>
-            <Box onClick={() => navigate('/AutoCheck/register')}>Registrar</Box>
-            <Box onClick={() => navigate('/AutoCheck/detection')}>Checkar</Box>
-        </Container>
-    )
-}
+const AutoCheck: React.FC = () => {
+  const navigate = useNavigate();
+
+  return (
+    <Container>
+      <Heading>AutoCheck</Heading>
+      <SubText>Faça o controle do acesso de seus operários</SubText>
+      <ContainerBox>
+        <Box onClick={() => navigate('/AutoCheck/register')}>Registrar</Box>
+        <Box onClick={() => navigate('/AutoCheck/detection')}>Checkar</Box>
+      </ContainerBox>
+    </Container>
+  );
+};
+
+export default AutoCheck;

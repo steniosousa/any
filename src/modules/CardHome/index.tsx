@@ -8,8 +8,8 @@ export default function CardHome({moduleTitle, src, to}:{moduleTitle:string, src
     }
     return(
         <Card onClick={() => handleLocation()}>
-            <Title>{moduleTitle}</Title>
             <ImgCard src={src} alt={moduleTitle}/>
+            <Title>{moduleTitle}</Title>
         </Card>
     )
 }

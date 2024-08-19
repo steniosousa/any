@@ -4,10 +4,9 @@ export const Card = styled.div`
     cursor: pointer;
     display:flex;
     flex-direction:column;
-    border-radius:20%;
+    border-radius:5%;
     align-items:center;
     text-align:center;
-    background: orange; 
     justify-content:center;
     max-width:200px;
     height:200px;
@@ -15,14 +14,12 @@ export const Card = styled.div`
 `
 
 export const ImgCard = styled.img`
-    border-radius:'10%';
-    max-width:200px;
     height:200px;
+    border-radius:5%;
 `
 
 export const Title = styled.p`
     align-self:center;
-    background: orange; 
     padding:10px;
     border-radius:20%;
     color:white

@@ -1,98 +1,63 @@
 import React, { useEffect, useRef, useState } from 'react';
-import * as faceapi from 'face-api.js';
+import Api from '../../../api/service';
+import { Container } from '../index-css';
+import { Cam } from './index-css';
 
 const Check: React.FC = () => {
-  const [isModelLoaded, setIsModelLoaded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [photoDescriptor, setPhotoDescriptor] = useState<any>(null);
+  const [isRequesting, setIsRequesting] = useState<boolean>(false);
 
   useEffect(() => {
-    const loadModels = async () => {
+    const startVideo = async () => {
       try {
-        const MODEL_URL = '/models';
-        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-        await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-        setIsModelLoaded(true);
+        if (videoRef.current) {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+          videoRef.current.srcObject = stream;
+        }
       } catch (error) {
-        console.error('Error loading models:', error);
+        console.error('Error accessing webcam:', error);
       }
     };
 
-    loadModels();
-  }, []);
+    startVideo();
+  }, [videoRef]);
 
   useEffect(() => {
-    if (isModelLoaded && videoRef.current) {
-      const startVideo = async () => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            videoRef.current.play();
+    (async function getPicture() {
+      if (videoRef.current && !isRequesting) {
+        setIsRequesting(true);
 
-            videoRef.current.addEventListener('play', () => {
-              setInterval(async () => {
-                if (videoRef.current) {
-                  try {
-                    const detections = await faceapi.detectAllFaces(videoRef.current, new faceapi.TinyFaceDetectorOptions())
-                      .withFaceLandmarks()
-                      .withFaceDescriptors();
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
 
-                    if (photoDescriptor && detections.length > 0) {
-                      const faceMatcher = new faceapi.FaceMatcher([photoDescriptor], 0.6);
-                      const results = detections.map(d => faceMatcher.findBestMatch(d.descriptor));
+        if (context) {
+          canvas.width = videoRef.current.videoWidth;
+          canvas.height = videoRef.current.videoHeight;
 
-                      results.forEach((result, i) => {
-                        console.log(`Face ${i}: ${result.label} (${result.distance})`);
-                        if (result.label === 'unknown' && result.distance < 0.6) {
-                          alert('Photo matches with a face in the video!');
-                        }
-                      });
-                    }
-                  } catch (error) {
-                    console.error('Error during face detection:', error);
-                  }
-                }
-              }, 1000);
-            });
-          }
-        } catch (error) {
-          console.error('Error accessing webcam:', error);
-        }
-      };
+          context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+          const base64Image = canvas.toDataURL('image/png');
+          try {
+            if (base64Image) {
+              const formData = new FormData();
+              formData.append('photo', base64Image);
 
-      startVideo();
-    }
-  }, [isModelLoaded, photoDescriptor]);
-
-  const validatePhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      try {
-        const image = await faceapi.bufferToImage(file);
-
-        const detections = await faceapi.detectAllFaces(image,new faceapi.TinyFaceDetectorOptions())
-          .withFaceLandmarks()
-          .withFaceDescriptors();
-
-        if (detections.length > 0) {
-          const [descriptor] = detections.map(d => d.descriptor);
-          if (descriptor) {
-            setPhotoDescriptor(descriptor);
+              const user = await Api.post('/AutoCheck/truckDriverUser/check', formData);
+            }
+          } catch (error) {
+            console.error('Error sending image:', error);
+          } finally {
+            setIsRequesting(false);
           }
         }
-      } catch (error) {
-        console.error('Error processing photo:', error);
       }
-    }
-  };
+
+    })()
+  }, [isRequesting == true])
 
   return (
-    <div>
-      <video ref={videoRef} width="100%" height="100%" muted autoPlay />
-      <input type="file" onChange={validatePhoto} />
-    </div>
+    <Container>
+      <Cam ref={videoRef} muted autoPlay />
+    </Container>
   );
 };
 
