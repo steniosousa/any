@@ -20,7 +20,7 @@ export default function Auth() {
         <div className="lg:w-1/2 xl:w-5/12 p-6 sm:p-12">
           <div>
             <img src="https://scontent-for1-1.xx.fbcdn.net/v/t39.30808-6/326361771_736546317894422_4684804476295082240_n.png?_nc_cat=108&ccb=1-7&_nc_sid=cc71e4&_nc_ohc=_-ioHhpIj40Q7kNvgGnNszB&_nc_ht=scontent-for1-1.xx&oh=00_AYC7GuR3tNXXJ_6ZGocUl9oY3L3YLlXJ84ubmwkD3An5qg&oe=66C9BDE1"
-              className="w-mx-auto h-full" />
+              className="w-mx-auto" />
           </div>
           <div className="mt-12 flex flex-col items-center">
             <div className="w-full flex-1 mt-8">
