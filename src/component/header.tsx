@@ -1,11 +1,7 @@
 export default function Header() {
+
     return (
         <header className='shadow-md font-sans tracking-wide relative z-50'>
-            <section className='py-2 bg-[#007bff] text-white text-right px-10'>
-                <p className='text-sm'><strong className="mx-3">Address:</strong>SWF New York 185669<strong className="mx-3">Contact
-                    No:</strong>1800333665</p>
-            </section>
-
             <div className='flex flex-wrap items-center justify-between gap-4 px-10 py-4 bg-white min-h-[70px]'>
                 <a href="javascript:void(0)"><img src="https://readymadeui.com/readymadeui.svg" alt="logo" className='w-36' />
                 </a>
