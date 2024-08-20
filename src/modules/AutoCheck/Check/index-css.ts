@@ -18,3 +18,13 @@ export const ButtonCam = styled.button`
     bottom: 40px;
     cursor: pointer;
 `
+
+export const CloseCam = styled.button`
+    position: absolute;
+    top:30px;
+    background: white;
+    padding: 10px;
+    border-radius:20%;
+    cursor: pointer;
+    z-index:99
+`

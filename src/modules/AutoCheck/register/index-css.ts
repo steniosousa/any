@@ -72,8 +72,24 @@ export const PhotoCaptured = styled.img`
   width: 100%;
 `
 
-export const Cam = styled.video`
-width: 100%;
+export const ContainerPhoto = styled.div`
+  background: black;
+  border-radius:2%;
+  margin-bottom:5%;
 `
 
-export const ButtonCam = styled.button``
+export const Cam = styled.video`
+    object-fit: cover; 
+    height: 50vh;
+    width: 100%;
+    border-radius:2%;
+`
+
+export const ButtonCam = styled.button`
+  border: none;
+  background: white;
+  margin: 5%;
+  border-radius:10%;
+  
+`
+

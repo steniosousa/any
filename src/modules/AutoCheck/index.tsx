@@ -1,5 +1,6 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import Header from '../../component/header';
 import { Container, Heading, SubText, ContainerBox, Box } from './index-css'; // Importe os componentes estilizados
 
 const AutoCheck: React.FC = () => {

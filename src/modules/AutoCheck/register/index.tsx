@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import Api from "../../../api/service";
-import { Button, ButtonCam, Cam, Input, Label, PhotoCaptured, RegisterBox, RegisterContainer, Title } from "./index-css";
+import { Button, ButtonCam, Cam,  ContainerPhoto, Input, Label, PhotoCaptured, RegisterBox, RegisterContainer, Title } from "./index-css";
+import { FaCamera } from "react-icons/fa";
 
 export default function Register() {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -86,15 +87,23 @@ export default function Register() {
                 denyButtonText: 'Cancelar',
                 confirmButtonText: 'Confirmar'
             })
-        } catch (error) {
-            console.log(error)
+        } catch (error:any) {
+            await Swal.fire({
+                icon: 'error',
+                title: error.response.data.error,
+                showDenyButton: false,
+                showCancelButton: false,
+                showConfirmButton: true,
+                denyButtonText: 'Cancelar',
+                confirmButtonText: 'Confirmar'
+            })
+
         }
     }
 
 
     useEffect(() => {
         startCamera();
-
     }, []);
 
 
@@ -116,11 +125,12 @@ export default function Register() {
                         </div>
 
                     ) : (
-                        <>
-                            <Cam ref={videoRef} autoPlay width="640" height="480" />
-                            <ButtonCam onClick={(e: any) => capturePhoto(e)}>Capturar Foto</ButtonCam>
+                        <ContainerPhoto>
+                            <Cam ref={videoRef} autoPlay  />
+                            <ButtonCam onClick={(e: any) => capturePhoto(e)}><FaCamera size={30}/>
+                            </ButtonCam>
                             <canvas ref={canvasRef} style={{ display: 'none' }} />
-                        </>
+                        </ContainerPhoto>
                     )}
                     <Button onClick={(e: any) => handleRegister(e)}>Registrar</Button>
                 </form>
