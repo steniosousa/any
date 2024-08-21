@@ -2,15 +2,18 @@ import React, { useEffect, useRef, useState } from 'react';
 import Swal from 'sweetalert2';
 import Api from '../../../api/service';
 import { Cam, CloseCam, Container } from './index-css';
-import { IoVideocamOffOutline } from "react-icons/io5";
 import * as faceapi from 'face-api.js';
+import { SiDigitalocean } from "react-icons/si";
+import { FaCameraRotate } from "react-icons/fa6";
 
 const Check: React.FC = () => {
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [usersData, setusersData] = useState<faceapi.LabeledFaceDescriptors[]>([])
+  const [camera, setCamera] = useState('front')
   const [imagesUsers, setImagesUsers] = useState<{ name: string, photo: string }[]>([])
+  const [userDetect, setUSerDetect] = useState('')
 
   const processPhotos = async (data: { name: string, photo: string }[]): Promise<void> => {
     const descriptors: faceapi.LabeledFaceDescriptors[] = [];
@@ -45,8 +48,9 @@ const Check: React.FC = () => {
       }
 
       if (!userLocalized) return
+      setUSerDetect(userLocalized)
       const confirm = await Swal.fire({
-        icon: 'error',
+        icon: 'question',
         title: `esse é voce? ${userLocalized}`,
         showDenyButton: true,
         showCancelButton: false,
@@ -55,8 +59,8 @@ const Check: React.FC = () => {
         confirmButtonText: 'Sim'
       })
 
-      if(!confirm.isConfirmed){
-        detect()
+      if (!confirm.isConfirmed) {
+        setUSerDetect('')
       }
 
     } catch (error) {
@@ -66,25 +70,38 @@ const Check: React.FC = () => {
 
   const detectAndIdentify = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+      const devices = await navigator.mediaDevices.enumerateDevices();
+
+      const rearCamera = devices.find(device =>
+        device.kind === 'videoinput' && device.label.toLowerCase().includes('back')
+      );
+      const cameraId = rearCamera ? rearCamera.deviceId : undefined;
+      const constraints = {
+        video: {
+          facingMode: 'environment',
+          deviceId: cameraId ? { exact: cameraId } : undefined
+        }
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        
+
       }
     } catch (error) {
       console.error('Error accessing webcam:', error);
     }
   };
-  async function detect(){
+
+
+  async function detect() {
     if (!videoRef.current) return
 
     const detections = await faceapi.detectAllFaces(videoRef.current, new faceapi.TinyFaceDetectorOptions())
-    .withFaceLandmarks()
-    .withFaceDescriptors();
+      .withFaceLandmarks()
+      .withFaceDescriptors();
 
-  identifyUser(detections, usersData);
+    identifyUser(detections, usersData);
   }
-
 
 
   const base64ToImage = (base64String: string): Promise<HTMLImageElement> => {
@@ -126,10 +143,12 @@ const Check: React.FC = () => {
   }, [])
   return (
     <Container>
-      <CloseCam onClick={detect}>
-        <IoVideocamOffOutline color='red' size={24} />
+      <CloseCam >
+        <SiDigitalocean color='green' size={24} onClick={detect} />
+        <FaCameraRotate size={24} onClick={() => setCamera('back')} />
       </CloseCam>
-      <Cam ref={videoRef} width="100%" height="100%" muted autoPlay />
+
+      <Cam ref={videoRef} width="100%" height="50%" muted autoPlay    playsInline />
       <canvas ref={canvasRef} style={{ display: 'none' }} />
     </Container>
   );
