@@ -1,105 +1,159 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Swal from 'sweetalert2';
 import Api from '../../../api/service';
-import { Container } from '../index-css';
-import { Cam, CloseCam } from './index-css';
+import { Cam, CloseCam, Container } from './index-css';
 import { IoVideocamOffOutline } from "react-icons/io5";
+import * as faceapi from 'face-api.js';
 
 const Check: React.FC = () => {
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isRequesting, setIsRequesting] = useState<boolean>(false);
-  const [stream, setStream] = useState<MediaStream | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [user, setUSer] = useState(null)
+  const [usersData, setusersData] = useState()
+
+
+  async function detected() {
+
+    if (videoRef.current) {
+      try {
+        const detections = await faceapi.detectAllFaces(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+          .withFaceLandmarks()
+          .withFaceDescriptors();
+
+        if (!usersData) return
+        const img = await base64ToImage(usersData)
+        const detectionsBack = await faceapi.detectAllFaces(img, new faceapi.TinyFaceDetectorOptions())
+          .withFaceLandmarks()
+          .withFaceDescriptors();
+        if (detectionsBack.length > 0) {
+
+          const [descriptor] = detectionsBack.map(d => d.descriptor);
+          if (descriptor) {
+            if (detections.length > 0) {
+              const faceMatcher = new faceapi.FaceMatcher([descriptor], 0.6);
+
+              const results = detections.map(d => faceMatcher.findBestMatch(d.descriptor));
+              results.forEach(async (result: any, i) => {
+                stopInterval()
+                setUSer(result)
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error during face detection:', error);
+      }
+    }
+
+
+  }
+
+  let intervalId: any;
+
+  const startInterval = () => {
+    if (intervalId) {
+      clearInterval(intervalId);
+    }
+
+    intervalId = setInterval(() => {
+      detected()
+
+    }, 2000);
+  };
+
+  const stopInterval = () => {
+    if (intervalId) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+  };
+
+  const [consfirmUser, setConfirmUser] = useState(false)
+  useEffect(() => {
+    if (!consfirmUser) {
+      startInterval()
+
+    }
+  }, [isModelLoaded])
 
   useEffect(() => {
-    const startVideo = async () => {
+    (async () => {
+      if (user) {
+        const confirm = await Swal.fire({
+          icon: 'error',
+          title: `esse é voce? ${user}`,
+          showDenyButton: true,
+          showCancelButton: false,
+          showConfirmButton: true,
+          denyButtonText: 'Cancelar',
+          confirmButtonText: 'Confirmar'
+        })
+        if (confirm.isConfirmed) {
+          stopInterval()
+          setConfirmUser(true)
+        } else {
+          startInterval()
+        }
+
+      }
+    })()
+
+  }, [user])
+
+
+
+
+
+  const base64ToImage = (base64String: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = (error) => reject(error);
+      img.src = base64String;
+    });
+  };
+
+
+  useEffect(() => {
+    (async () => {
       try {
+        const MODEL_URL = '/models';
+        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+        setIsModelLoaded(true);
+      } catch (error) {
+        console.error('Error loading models:', error);
+      }
+    })();
+    (async () => {
+      try {
+        const { data } = await Api.get('AutoCheck/truckDriverUser/check')
+        setusersData(data)
+      } catch (error) {
+        console.log(error)
+      }
+    })();
+
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
         if (videoRef.current) {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
           videoRef.current.srcObject = stream;
-          setStream(stream)
         }
       } catch (error) {
         console.error('Error accessing webcam:', error);
       }
-    };
-
-    startVideo();
-  }, [videoRef]);
-
-
-
-  useEffect(() => {
-    (async function getPicture() {
-      if (videoRef.current && !isRequesting) {
-        setIsRequesting(true);
-
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-
-        if (context) {
-          canvas.width = videoRef.current.videoWidth;
-          canvas.height = videoRef.current.videoHeight;
-
-          context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-          const base64Image = canvas.toDataURL('image/png');
-          if (!stream) return
-          try {
-            if (base64Image) {
-              const formData = new FormData();
-              formData.append('photo', base64Image);
-
-              const { data } = await Api.post('/AutoCheck/truckDriverUser/check', formData);
-              const confirm = await Swal.fire({
-                icon: 'info',
-                title: `Você é ${data.identifyUser}?`,
-                showDenyButton: true,
-                showCancelButton: true,
-                showConfirmButton: true,
-                denyButtonText: 'Não',
-                confirmButtonText: 'Sim'
-              })
-              if (!confirm.isConfirmed) {
-                offCam()
-              }
-            }
-          } catch ({ data }) {
-            await Swal.fire({
-              icon: 'info',
-              title: `${data}?`,
-              showDenyButton: false,
-              showCancelButton: false,
-              showConfirmButton: true,
-              denyButtonText: 'Não',
-              confirmButtonText: 'Sim'
-            })
-          } finally {
-            setIsRequesting(false);
-          }
-        }
-      }
-
     })()
-  }, [isRequesting == true])
-
-
-  async function offCam() {
-    if (videoRef.current) {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
-      videoRef.current.srcObject = stream;
-      if (stream) {
-        stream.getTracks().forEach((track) => {
-          track.stop()
-        })
-
-      }
-    }
-  }
+  }, [])
   return (
     <Container>
-      <CloseCam onClick={() => offCam()}>
-        <IoVideocamOffOutline size={30} color="red" />
+      <CloseCam>
+        <IoVideocamOffOutline color='red' size={24}/>
       </CloseCam>
-      <Cam ref={videoRef} muted autoPlay />
+      <Cam ref={videoRef} width="100%" height="100%" muted autoPlay />
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
     </Container>
   );
 };

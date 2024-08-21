@@ -1,16 +1,103 @@
 import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import Api from "../../../api/service";
-import { Button, ButtonCam, Cam,  ContainerPhoto, Input, Label, PhotoCaptured, RegisterBox, RegisterContainer, Title } from "./index-css";
+import { Button, ButtonCam, Cam, ContainerPhoto, Input, Label, PhotoCaptured, RegisterBox, RegisterContainer, Title } from "./index-css";
 import { FaCamera } from "react-icons/fa";
+import * as faceapi from 'face-api.js';
 
 export default function Register() {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [photo, setPhoto] = useState<any | null>(null);
-
+    const [blobImage, setBlobImage] = useState<any>(null)
     const [name, setName] = useState('')
     const [plate, setPlate] = useState('')
+
+    const [loadedModels, setLoadedModels] = useState(false)
+
+    useEffect(() => {
+        const loadModels = async () => {
+            try {
+                const MODEL_URL = '/models';
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+                await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+                setLoadedModels(true);
+            } catch (error) {
+                console.error('Error loading models:', error);
+            }
+        };
+
+        loadModels();
+    }, []);
+
+
+
+    async function handleRegister(e: any) {
+        e.preventDefault()
+        if (!loadedModels) return
+
+        if (!blobImage) return
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('plate', plate);
+        formData.append('photo', photo);
+        try {
+            const image = await faceapi.bufferToImage(blobImage);
+
+            const detections = await faceapi.detectAllFaces(image, new faceapi.TinyFaceDetectorOptions())
+                .withFaceLandmarks()
+                .withFaceDescriptors();
+
+            if (detections.length > 0) {
+                const [descriptor] = detections.map(d => d.descriptor);
+                if (descriptor) {
+                  const descriptorString = JSON.stringify(Array.from(descriptor));
+                  formData.append('descriptor', descriptorString);
+                }
+            }
+        } catch (error) {
+            console.error('Error processing photo:', error);
+        }
+
+        
+
+        try {
+            if (!name || !plate || !photo) {
+                await Swal.fire({
+                    icon: 'info',
+                    title: "Preencha todos os campos",
+                    showDenyButton: false,
+                    showCancelButton: false,
+                    showConfirmButton: true,
+                    denyButtonText: 'Cancelar',
+                    confirmButtonText: 'Confirmar'
+                })
+                return
+            }
+            await Api.post('AutoCheck/truckDriverUser/create', formData)
+            await Swal.fire({
+                icon: 'success',
+                title: "Motorista cadastrado com sucesso",
+                showDenyButton: false,
+                showCancelButton: false,
+                showConfirmButton: true,
+                denyButtonText: 'Cancelar',
+                confirmButtonText: 'Confirmar'
+            })
+        } catch (error: any) {
+            await Swal.fire({
+                icon: 'error',
+                title: error.response.data.error,
+                showDenyButton: false,
+                showCancelButton: false,
+                showConfirmButton: true,
+                denyButtonText: 'Cancelar',
+                confirmButtonText: 'Confirmar'
+            })
+
+        }
+    }
 
     const startCamera = async () => {
         try {
@@ -35,13 +122,21 @@ export default function Register() {
                 setPhoto(base64Image)
             };
             reader.readAsDataURL(file);
+            setBlobImage(file)
         }
         else if (canvasRef.current && videoRef.current) {
-            const context = canvasRef.current.getContext('2d');
+            const video = videoRef.current;
+            const canvas = canvasRef.current;
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
             if (context) {
-                canvasRef.current.width = videoRef.current.videoWidth;
-                canvasRef.current.height = videoRef.current.videoHeight;
-                context.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        setBlobImage(blob)
+                    }
+                }, 'image/jpeg');
                 setPhoto(canvasRef.current.toDataURL('image/png'));
             }
         }
@@ -57,51 +152,6 @@ export default function Register() {
             })
         }
     };
-
-    async function handleRegister(e: any) {
-        e.preventDefault()
-        const formData = new FormData();
-        formData.append('name', name);
-        formData.append('plate', plate);
-        formData.append('photo', photo);
-        try {
-            if (!name || !plate || !photo) {
-                await Swal.fire({
-                    icon: 'info',
-                    title: "Preencha todos os campos",
-                    showDenyButton: false,
-                    showCancelButton: false,
-                    showConfirmButton: true,
-                    denyButtonText: 'Cancelar',
-                    confirmButtonText: 'Confirmar'
-                })
-                return
-            }
-            await Api.post('AutoCheck/truckDriverUser/create', formData)
-            await Swal.fire({
-                icon: 'success',
-                title: "Motorista cadastrado com sucesso",
-                showDenyButton: false,
-                showCancelButton: false,
-                showConfirmButton: true,
-                denyButtonText: 'Cancelar',
-                confirmButtonText: 'Confirmar'
-            })
-        } catch (error:any) {
-            await Swal.fire({
-                icon: 'error',
-                title: error.response.data.error,
-                showDenyButton: false,
-                showCancelButton: false,
-                showConfirmButton: true,
-                denyButtonText: 'Cancelar',
-                confirmButtonText: 'Confirmar'
-            })
-
-        }
-    }
-
-
     useEffect(() => {
         startCamera();
     }, []);
@@ -126,8 +176,8 @@ export default function Register() {
 
                     ) : (
                         <ContainerPhoto>
-                            <Cam ref={videoRef} autoPlay  />
-                            <ButtonCam onClick={(e: any) => capturePhoto(e)}><FaCamera size={30}/>
+                            <Cam ref={videoRef} autoPlay />
+                            <ButtonCam onClick={(e: any) => capturePhoto(e)}><FaCamera size={30} />
                             </ButtonCam>
                             <canvas ref={canvasRef} style={{ display: 'none' }} />
                         </ContainerPhoto>

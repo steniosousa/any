@@ -22,6 +22,7 @@ export const ButtonCam = styled.button`
 export const CloseCam = styled.button`
     position: absolute;
     top:30px;
+    right:40px;
     background: white;
     padding: 10px;
     border-radius:20%;
