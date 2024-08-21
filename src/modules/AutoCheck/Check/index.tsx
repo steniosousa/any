@@ -9,99 +9,78 @@ const Check: React.FC = () => {
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [user, setUSer] = useState(null)
-  const [usersData, setusersData] = useState()
+  const [usersData, setusersData] = useState<faceapi.LabeledFaceDescriptors[]>([])
+  const [imagesUsers, setImagesUsers] = useState<{ name: string, photo: string }[]>([])
+
+  const processPhotos = async (data: { name: string, photo: string }[]): Promise<void> => {
+    const descriptors: faceapi.LabeledFaceDescriptors[] = [];
+    const images: any[] = await Promise.all(
+      data.map(async (item, i) => {
+        const base64Image = await base64ToImage(item.photo);
+        const detections = await faceapi.detectAllFaces(base64Image, new faceapi.TinyFaceDetectorOptions())
+          .withFaceLandmarks()
+          .withFaceDescriptors();
+        const userDescriptors = detections.map(d => d.descriptor);
+        if (userDescriptors.length > 0) {
+          descriptors.push(new faceapi.LabeledFaceDescriptors(item.name, userDescriptors));
+        }
+        return descriptors
+      })
+    );
+    setusersData(images)
+  };
 
 
-  async function detected() {
+  const identifyUser = async (detections: any[], userDescriptors: faceapi.LabeledFaceDescriptors[]) => {
+    if (userDescriptors.length === 0) return;
+    try {
+      let userLocalized;
+      for (const item of userDescriptors) {
+        const faceMatcher = new faceapi.FaceMatcher(item, 0.6);
+        const results = detections.map(d => faceMatcher.findBestMatch(d.descriptor));
+        results.forEach(async (result: any, i) => {
+          if (result.label == "unknown" || !result.label) return
+          userLocalized = result.label
+        });
+      }
 
-    if (videoRef.current) {
-      try {
+      if (!userLocalized) return
+      const confirm = await Swal.fire({
+        icon: 'error',
+        title: `esse é voce? ${userLocalized}`,
+        showDenyButton: true,
+        showCancelButton: false,
+        showConfirmButton: true,
+        denyButtonText: 'Não',
+        confirmButtonText: 'Sim'
+      })
+
+      if(!confirm.isConfirmed){
+        detectAndIdentify()
+      }
+
+    } catch (error) {
+      console.log(error)
+    }
+  };
+
+  const detectAndIdentify = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        if (!videoRef.current) return
         const detections = await faceapi.detectAllFaces(videoRef.current, new faceapi.TinyFaceDetectorOptions())
           .withFaceLandmarks()
           .withFaceDescriptors();
-
-        if (!usersData) return
-        const img = await base64ToImage(usersData)
-        const detectionsBack = await faceapi.detectAllFaces(img, new faceapi.TinyFaceDetectorOptions())
-          .withFaceLandmarks()
-          .withFaceDescriptors();
-        if (detectionsBack.length > 0) {
-
-          const [descriptor] = detectionsBack.map(d => d.descriptor);
-          if (descriptor) {
-            if (detections.length > 0) {
-              const faceMatcher = new faceapi.FaceMatcher([descriptor], 0.6);
-
-              const results = detections.map(d => faceMatcher.findBestMatch(d.descriptor));
-              results.forEach(async (result: any, i) => {
-                stopInterval()
-                setUSer(result)
-              });
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error during face detection:', error);
+    
+        console.log(detections)
+        identifyUser(detections, usersData);
       }
-    }
-
-
-  }
-
-  let intervalId: any;
-
-  const startInterval = () => {
-    if (intervalId) {
-      clearInterval(intervalId);
-    }
-
-    intervalId = setInterval(() => {
-      detected()
-
-    }, 2000);
-  };
-
-  const stopInterval = () => {
-    if (intervalId) {
-      clearInterval(intervalId);
-      intervalId = null;
+    } catch (error) {
+      console.error('Error accessing webcam:', error);
     }
   };
-
-  const [consfirmUser, setConfirmUser] = useState(false)
-  useEffect(() => {
-    if (!consfirmUser) {
-      startInterval()
-
-    }
-  }, [isModelLoaded])
-
-  useEffect(() => {
-    (async () => {
-      if (user) {
-        const confirm = await Swal.fire({
-          icon: 'error',
-          title: `esse é voce? ${user}`,
-          showDenyButton: true,
-          showCancelButton: false,
-          showConfirmButton: true,
-          denyButtonText: 'Cancelar',
-          confirmButtonText: 'Confirmar'
-        })
-        if (confirm.isConfirmed) {
-          stopInterval()
-          setConfirmUser(true)
-        } else {
-          startInterval()
-        }
-
-      }
-    })()
-
-  }, [user])
-
-
 
 
 
@@ -115,6 +94,11 @@ const Check: React.FC = () => {
   };
 
 
+  useEffect(() => {
+    processPhotos(imagesUsers)
+    detectAndIdentify()
+
+  }, [isModelLoaded])
   useEffect(() => {
     (async () => {
       try {
@@ -130,27 +114,16 @@ const Check: React.FC = () => {
     (async () => {
       try {
         const { data } = await Api.get('AutoCheck/truckDriverUser/check')
-        setusersData(data)
+        setImagesUsers(data)
       } catch (error) {
         console.log(error)
       }
     })();
-
-    (async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (error) {
-        console.error('Error accessing webcam:', error);
-      }
-    })()
   }, [])
   return (
     <Container>
       <CloseCam>
-        <IoVideocamOffOutline color='red' size={24}/>
+        <IoVideocamOffOutline color='red' size={24} />
       </CloseCam>
       <Cam ref={videoRef} width="100%" height="100%" muted autoPlay />
       <canvas ref={canvasRef} style={{ display: 'none' }} />
