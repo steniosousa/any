@@ -56,7 +56,7 @@ const Check: React.FC = () => {
       })
 
       if(!confirm.isConfirmed){
-        detectAndIdentify()
+        detect()
       }
 
     } catch (error) {
@@ -69,18 +69,21 @@ const Check: React.FC = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        if (!videoRef.current) return
-        const detections = await faceapi.detectAllFaces(videoRef.current, new faceapi.TinyFaceDetectorOptions())
-          .withFaceLandmarks()
-          .withFaceDescriptors();
-    
-        console.log(detections)
-        identifyUser(detections, usersData);
+        
       }
     } catch (error) {
       console.error('Error accessing webcam:', error);
     }
   };
+  async function detect(){
+    if (!videoRef.current) return
+
+    const detections = await faceapi.detectAllFaces(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+    .withFaceLandmarks()
+    .withFaceDescriptors();
+
+  identifyUser(detections, usersData);
+  }
 
 
 
@@ -96,7 +99,7 @@ const Check: React.FC = () => {
 
   useEffect(() => {
     processPhotos(imagesUsers)
-    detectAndIdentify()
+    detect()
 
   }, [isModelLoaded])
   useEffect(() => {
@@ -107,6 +110,7 @@ const Check: React.FC = () => {
         await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
         await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
         setIsModelLoaded(true);
+        detectAndIdentify()
       } catch (error) {
         console.error('Error loading models:', error);
       }
@@ -122,7 +126,7 @@ const Check: React.FC = () => {
   }, [])
   return (
     <Container>
-      <CloseCam>
+      <CloseCam onClick={detect}>
         <IoVideocamOffOutline color='red' size={24} />
       </CloseCam>
       <Cam ref={videoRef} width="100%" height="100%" muted autoPlay />
